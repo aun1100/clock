@@ -11,9 +11,26 @@ interface AlarmItem {
   active: boolean;
 }
 
+interface WorldCity {
+  id: string;
+  city: string;
+  tz: string;
+}
+
 export default function MobileClockApp() {
   const [activeTab, setActiveTab] = useState<TabType>('world');
   const [now, setNow] = useState<Date | null>(null);
+
+  // --- States: World Clock (เพิ่ม/ลบเมืองได้) ---
+  const [worldCities, setWorldCities] = useState<WorldCity[]>([
+    { id: '1', city: 'กรุงเทพฯ', tz: 'Asia/Bangkok' },
+    { id: '2', city: 'โตเกียว', tz: 'Asia/Tokyo' },
+    { id: '3', city: 'ลอนดอน', tz: 'Europe/London' },
+    { id: '4', city: 'นิวยอร์ก', tz: 'America/New_York' },
+  ]);
+  const [showAddCity, setShowAddCity] = useState(false);
+  const [newCityName, setNewCityName] = useState('');
+  const [newCityTz, setNewCityTz] = useState('Asia/Seoul');
 
   // --- States: Alarm ---
   const [alarms, setAlarms] = useState<AlarmItem[]>([
@@ -80,13 +97,31 @@ export default function MobileClockApp() {
     return <main className="min-h-[100dvh] bg-[#07090e]" />;
   }
 
-  // จัดรูปแบบเวลา
-  const formatWorldTime = (timeZone: string) =>
-    now.toLocaleTimeString('en-GB', {
-      timeZone,
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  // จัดรูปแบบเวลาแต่ละโซน
+  const formatWorldTime = (timeZone: string) => {
+    try {
+      return now.toLocaleTimeString('en-GB', {
+        timeZone,
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return '--:--';
+    }
+  };
+
+  const calculateOffset = (timeZone: string) => {
+    try {
+      const localDate = new Date();
+      const tzDateStr = localDate.toLocaleString('en-US', { timeZone });
+      const tzDate = new Date(tzDateStr);
+      const diffHours = Math.round((tzDate.getTime() - localDate.getTime()) / (1000 * 60 * 60));
+      if (diffHours === 0) return 'เวลาตรงกัน (+0 ชม.)';
+      return diffHours > 0 ? `ล่วงหน้า +${diffHours} ชม.` : `ตามหลัง ${diffHours} ชม.`;
+    } catch {
+      return timeZone;
+    }
+  };
 
   const formatStopwatch = (ms: number) => {
     const minutes = Math.floor(ms / 60000);
@@ -109,7 +144,7 @@ export default function MobileClockApp() {
   const minuteDeg = minutes * 6 + seconds * 0.1;
   const hourDeg = ((hours % 12) / 12) * 360 + (minutes / 60) * 30;
 
-  // คำนวณเส้นวงกลม Timer
+  // วงแหวน Timer
   const radius = 92;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset =
@@ -127,12 +162,26 @@ export default function MobileClockApp() {
     setShowAddAlarm(false);
   };
 
+  const handleAddCity = () => {
+    if (!newCityName.trim()) return;
+    setWorldCities([
+      ...worldCities,
+      { id: Date.now().toString(), city: newCityName.trim(), tz: newCityTz },
+    ]);
+    setNewCityName('');
+    setShowAddCity(false);
+  };
+
+  const handleRemoveCity = (id: string) => {
+    setWorldCities(worldCities.filter((c) => c.id !== id));
+  };
+
   return (
     <main className="min-h-[100dvh] w-full bg-gradient-to-b from-[#0d111a] via-[#080a0f] to-[#050608] text-white flex flex-col select-none">
-      {/* Container หลักที่ปรับขนาดพอดีกับมือถือและรองรับจอคอม */}
       <div className="w-full max-w-md mx-auto flex-1 flex flex-col justify-between">
-        {/* ================= พื้นที่เนื้อหาหลัก (เลื่อนได้) ================= */}
+        {/* ================= เนื้อหาหลัก ================= */}
         <div className="flex-1 overflow-y-auto px-5 pt-6 pb-28">
+          
           {/* ================= TAB 1: WORLD CLOCK ================= */}
           {activeTab === 'world' && (
             <div className="flex flex-col">
@@ -145,16 +194,69 @@ export default function MobileClockApp() {
                     เวลาโลก
                   </h1>
                 </div>
-                <span className="text-xs text-zinc-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-                  {now.toLocaleDateString('th-TH', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAddCity(!showAddCity)}
+                    className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 flex items-center justify-center text-2xl active:scale-95 transition cursor-pointer"
+                    title="เพิ่มเมือง"
+                  >
+                    +
+                  </button>
+                  <span className="text-xs text-zinc-400 bg-white/5 px-3 py-2 rounded-full border border-white/10">
+                    {now.toLocaleDateString('th-TH', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })}
+                  </span>
+                </div>
               </div>
 
-              {/* นาฬิกาเข็ม Cyber Analog */}
+              {/* ฟอร์มเพิ่มเมืองใหม่ */}
+              {showAddCity && (
+                <div className="mb-4 p-4 rounded-2xl bg-zinc-900/95 border border-cyan-500/40 space-y-3 animate-fadeIn">
+                  <p className="text-xs font-semibold text-cyan-300">เพิ่มเมืองหรือประเทศที่คุณต้องการ</p>
+                  <input
+                    type="text"
+                    placeholder="ชื่อเมือง (เช่น โซล, ปารีส)"
+                    value={newCityName}
+                    onChange={(e) => setNewCityName(e.target.value)}
+                    className="w-full bg-black text-white text-sm px-3.5 py-2.5 rounded-xl border border-zinc-700 outline-none focus:border-cyan-400"
+                  />
+                  <select
+                    value={newCityTz}
+                    onChange={(e) => setNewCityTz(e.target.value)}
+                    className="w-full bg-black text-white text-sm px-3.5 py-2.5 rounded-xl border border-zinc-700 outline-none focus:border-cyan-400"
+                  >
+                    <option value="Asia/Bangkok">🇹🇭 กรุงเทพฯ (Bangkok)</option>
+                    <option value="Asia/Tokyo">🇯🇵 โตเกียว (Tokyo)</option>
+                    <option value="Asia/Seoul">🇰🇷 โซล (Seoul)</option>
+                    <option value="Asia/Shanghai">🇨🇳 ปักกิ่ง / เซี่ยงไฮ้ (Beijing)</option>
+                    <option value="Asia/Singapore">🇸🇬 สิงคโปร์ (Singapore)</option>
+                    <option value="Europe/London">🇬🇧 ลอนดอน (London)</option>
+                    <option value="Europe/Paris">🇫🇷 ปารีส (Paris)</option>
+                    <option value="America/New_York">🇺🇸 นิวยอร์ก (New York)</option>
+                    <option value="America/Los_Angeles">🇺🇸 ลอสแอนเจลิส (Los Angeles)</option>
+                    <option value="Australia/Sydney">🇦🇺 ซิดนีย์ (Sydney)</option>
+                  </select>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      onClick={() => setShowAddCity(false)}
+                      className="px-4 py-2 rounded-xl bg-zinc-800 text-xs text-zinc-300 cursor-pointer"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      onClick={handleAddCity}
+                      className="px-4 py-2 rounded-xl bg-cyan-600 active:bg-cyan-500 text-xs font-bold cursor-pointer"
+                    >
+                      ยืนยันเพิ่ม
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* นาฬิกาเข็มหลัก (กรุงเทพฯ) */}
               <div className="relative mx-auto my-3 w-48 h-48 sm:w-52 sm:h-52 rounded-full bg-zinc-950/90 border border-cyan-500/30 shadow-[0_0_35px_rgba(6,182,212,0.18)] flex items-center justify-center">
                 <div className="absolute inset-2.5 rounded-full border border-dashed border-zinc-800" />
                 {[...Array(12)].map((_, i) => (
@@ -172,17 +274,14 @@ export default function MobileClockApp() {
                     />
                   </div>
                 ))}
-                {/* เข็มชั่วโมง */}
                 <div
                   className="absolute bottom-1/2 w-1.5 h-12 bg-white rounded-full origin-bottom shadow"
                   style={{ transform: `rotate(${hourDeg}deg)` }}
                 />
-                {/* เข็มนาที */}
                 <div
                   className="absolute bottom-1/2 w-1 h-16 bg-cyan-400 rounded-full origin-bottom shadow-[0_0_8px_#22d3ee]"
                   style={{ transform: `rotate(${minuteDeg}deg)` }}
                 />
-                {/* เข็มวินาที */}
                 <div
                   className="absolute bottom-1/2 w-0.5 h-20 bg-fuchsia-500 rounded-full origin-bottom shadow-[0_0_8px_#d946ef]"
                   style={{ transform: `rotate(${secondDeg}deg)` }}
@@ -190,28 +289,36 @@ export default function MobileClockApp() {
                 <div className="w-3 h-3 rounded-full bg-fuchsia-500 border-2 border-black z-10" />
               </div>
 
-              {/* รายการเมืองต่างๆ */}
+              {/* รายการเมือง (Dynamic List เพิ่ม/ลบได้) */}
               <div className="mt-5 space-y-3">
-                {[
-                  { city: 'กรุงเทพฯ', offset: 'วันนี้ +0 ชม.', tz: 'Asia/Bangkok', active: true },
-                  { city: 'โตเกียว', offset: 'วันนี้ +2 ชม.', tz: 'Asia/Tokyo', active: false },
-                  { city: 'ลอนดอน', offset: 'วันนี้ -7 ชม.', tz: 'Europe/London', active: false },
-                  { city: 'นิวยอร์ก', offset: 'เมื่อวาน -12 ชม.', tz: 'America/New_York', active: false },
-                ].map((item) => (
+                {worldCities.map((item, index) => (
                   <div
-                    key={item.city}
-                    className={`flex items-center justify-between p-4 rounded-2xl border backdrop-blur-md transition-all ${
-                      item.active
+                    key={item.id}
+                    className={`relative flex items-center justify-between p-4 rounded-2xl border backdrop-blur-md transition-all ${
+                      index === 0
                         ? 'bg-cyan-950/30 border-cyan-500/40 shadow-[0_0_20px_rgba(6,182,212,0.12)]'
                         : 'bg-white/[0.03] border-white/5'
                     }`}
                   >
                     <div>
-                      <p className="text-xs text-zinc-400">{item.offset}</p>
+                      <p className="text-xs text-zinc-400">{calculateOffset(item.tz)}</p>
                       <p className="text-lg font-semibold text-zinc-100">{item.city}</p>
                     </div>
-                    <div className="text-3xl font-mono font-light tracking-wider text-cyan-300">
-                      {formatWorldTime(item.tz)}
+                    
+                    <div className="flex items-center gap-4">
+                      <div className="text-3xl font-mono font-light tracking-wider text-cyan-300">
+                        {formatWorldTime(item.tz)}
+                      </div>
+                      {/* ปุ่มลบเมือง (ไม่ให้ลบเมืองแรกสุดที่เป็นหลัก) */}
+                      {worldCities.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveCity(item.id)}
+                          className="w-7 h-7 rounded-full bg-rose-500/10 hover:bg-rose-500/30 border border-rose-500/30 text-rose-400 flex items-center justify-center text-xs transition cursor-pointer"
+                          title="ลบเมืองนี้"
+                        >
+                          ✕
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -273,7 +380,6 @@ export default function MobileClockApp() {
                       <div className="text-xs text-zinc-400 mt-1">{alarm.label}</div>
                     </div>
 
-                    {/* Toggle Switch */}
                     <button
                       onClick={() => toggleAlarm(alarm.id)}
                       className={`w-14 h-8 rounded-full p-1 transition-colors cursor-pointer ${
@@ -306,14 +412,12 @@ export default function MobileClockApp() {
                 </h1>
               </div>
 
-              {/* จอแสดงผลตัวเลขใหญ่ */}
               <div className="my-4 py-10 rounded-3xl bg-zinc-950/80 border border-emerald-500/25 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)] flex items-center justify-center">
                 <span className="text-5xl sm:text-6xl font-mono font-light tracking-wider text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.5)]">
                   {formatStopwatch(swTime)}
                 </span>
               </div>
 
-              {/* ปุ่มควบคุมขนาดใหญ่กดง่ายด้วยนิ้วโป้ง */}
               <div className="flex justify-around items-center my-6">
                 <button
                   onClick={() => {
@@ -341,7 +445,6 @@ export default function MobileClockApp() {
                 </button>
               </div>
 
-              {/* รายการบันทึก Lap */}
               {laps.length > 0 && (
                 <div className="space-y-2 border-t border-white/10 pt-4">
                   {laps.map((lap, idx) => (
@@ -372,7 +475,6 @@ export default function MobileClockApp() {
                 </h1>
               </div>
 
-              {/* วงแหวน Progress Ring */}
               <div className="relative my-4 mx-auto w-60 h-60 flex items-center justify-center">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 220 220">
                   <circle
@@ -406,7 +508,6 @@ export default function MobileClockApp() {
                 </div>
               </div>
 
-              {/* ตั้งค่าเวลาด่วน */}
               {!timerRunning && (
                 <div className="grid grid-cols-4 gap-2 my-3">
                   {[
@@ -429,7 +530,6 @@ export default function MobileClockApp() {
                 </div>
               )}
 
-              {/* ปุ่มเริ่ม / ยกเลิก */}
               <div className="flex justify-around items-center mt-6">
                 <button
                   onClick={() => {
@@ -459,7 +559,7 @@ export default function MobileClockApp() {
           )}
         </div>
 
-        {/* ================= BOTTOM NAVIGATION BAR (ติดขอบล่างตลอดเวลา) ================= */}
+        {/* ================= BOTTOM NAVIGATION BAR ================= */}
         <nav className="fixed bottom-0 left-0 right-0 bg-[#090b10]/90 backdrop-blur-xl border-t border-white/10 pb-[env(safe-area-inset-bottom,12px)] pt-2 z-50">
           <div className="max-w-md mx-auto grid grid-cols-4 gap-1 px-2">
             {[
