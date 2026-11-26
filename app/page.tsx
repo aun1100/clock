@@ -1,65 +1,104 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+import React, { useState, useEffect } from 'react';
+
+export default function ClockPage() {
+  const [time, setTime] = useState<Date | null>(null);
+  const [is24Hour, setIs24Hour] = useState(true);
+
+  useEffect(() => {
+    setTime(new Date());
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (!time) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-slate-950">
+        <div className="w-80 h-96 rounded-3xl bg-slate-900 animate-pulse" />
       </main>
-    </div>
+    );
+  }
+
+  const seconds = time.getSeconds();
+  const minutes = time.getMinutes();
+  const hours = time.getHours();
+
+  const secondDegrees = seconds * 6;
+  const minuteDegrees = minutes * 6 + seconds * 0.1;
+  const hourDegrees = ((hours % 12) / 12) * 360 + (minutes / 60) * 30;
+
+  const formattedTime = time.toLocaleTimeString('en-US', {
+    hour12: !is24Hour,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+
+  const formattedDate = time.toLocaleDateString('th-TH', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  return (
+    <main className="min-h-screen flex flex-col items-center justify-center bg-slate-950 p-4">
+      <div className="flex flex-col items-center justify-center p-8 rounded-3xl bg-slate-900 text-white shadow-2xl border border-slate-800 w-full max-w-sm">
+        {/* นาฬิกาแบบเข็ม */}
+        <div className="relative w-48 h-48 rounded-full border-4 border-slate-700 bg-slate-950 shadow-inner flex items-center justify-center mb-6">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-full h-full flex justify-center p-1.5"
+              style={{ transform: `rotate(${i * 30}deg)` }}
+            >
+              <div
+                className={`w-1 rounded-full ${
+                  i % 3 === 0 ? 'h-3 bg-sky-400' : 'h-1.5 bg-slate-600'
+                }`}
+              />
+            </div>
+          ))}
+
+          {/* เข็มชั่วโมง */}
+          <div
+            className="absolute bottom-1/2 w-1.5 h-12 bg-white rounded-full origin-bottom transition-transform duration-150"
+            style={{ transform: `rotate(${hourDegrees}deg)` }}
+          />
+
+          {/* เข็มนาที */}
+          <div
+            className="absolute bottom-1/2 w-1 h-16 bg-slate-300 rounded-full origin-bottom transition-transform duration-150"
+            style={{ transform: `rotate(${minuteDegrees}deg)` }}
+          />
+
+          {/* เข็มวินาที */}
+          <div
+            className="absolute bottom-1/2 w-0.5 h-20 bg-rose-500 rounded-full origin-bottom"
+            style={{ transform: `rotate(${secondDegrees}deg)` }}
+          />
+
+          {/* จุดหมุนตรงกลาง */}
+          <div className="w-3 h-3 rounded-full bg-rose-500 border-2 border-slate-950 z-10" />
+        </div>
+
+        {/* นาฬิกาดิจิทัล */}
+        <div className="text-4xl font-mono font-bold tracking-wider text-sky-400 mb-2">
+          {formattedTime}
+        </div>
+
+        {/* วันที่ภาษาไทย */}
+        <p className="text-sm text-slate-400 mb-6 text-center">{formattedDate}</p>
+
+        {/* ปุ่มสลับ 12/24 ชั่วโมง */}
+        <button
+          onClick={() => setIs24Hour(!is24Hour)}
+          className="px-4 py-2 text-xs font-medium rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer border border-slate-700"
+        >
+          รูปแบบ: {is24Hour ? '24 ชั่วโมง' : '12 ชั่วโมง (AM/PM)'}
+        </button>
+      </div>
+    </main>
   );
 }
